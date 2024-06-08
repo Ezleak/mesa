@@ -9,12 +9,12 @@ jobs:
   build:
     strategy:
       matrix:
-        arch: [ "arm32", "aarch64", "x86_64" ]
+        arch: [ "aarch64" ]
       fail-fast: false
 
     name: "Build for ${{matrix.arch}}"
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v2
@@ -33,9 +33,9 @@ jobs:
           meson "build-android-${{matrix.arch}}" \
             --prefix=/tmp/zink \
             --cross-file "android-${{matrix.arch}}" \
-            --buildtype debug \
+            --buildtype release \
             -Dplatforms=android \
-            -Dplatform-sdk-version=24 \
+            -Dplatform-sdk-version=29 \
             -Dandroid-stub=true \
             -Dllvm=disabled \
             -Dxlib-lease=disabled \
@@ -46,7 +46,7 @@ jobs:
             -Dopengl=true \
             -Dosmesa=true \
             -Dvulkan-drivers= \
-            -Dgallium-drivers=virgl \
+            -Dgallium-drivers=swr \
             -Dshared-glapi=false
           ninja -C "build-android-${{matrix.arch}}" install
           # cp "build-android-${{matrix.arch}}/src/gallium/drivers/zink/libzink.a" /tmp/zink/lib/
