@@ -1,8 +1,9 @@
+
 name: Build Android
 
 on:
-  workflow_dispatch:
-  push:
+  [push, pull_request]
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build:
@@ -13,61 +14,52 @@ jobs:
 
     name: "Build for ${{matrix.arch}}"
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
-    steps:        
-      - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v2
 
       - name: Build
         run: |
+          ln -s vulkan_android.pc vulkan.pc
           sudo apt update
-          sudo apt install -y libxrandr-dev libxxf86vm-dev libxcb-*-dev libx11-xcb-dev libxfixes-dev libdrm-dev libx11-dev
-          pip3 install mako meson ninja
+          sudo apt install -y meson libxrandr-dev libxxf86vm-dev libxcb-*-dev libx11-xcb-dev libxfixes-dev libdrm-dev libx11-dev python3-xyz
+          cp -R /usr/include/X11 include/
+          cp -R /usr/include/xcb include/
+          cp -R /usr/include/GL/* include/GL/
+          pip3 install mako
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk-bundle"
-          #envsubst <android-drm-${{matrix.arch}} >build-crossfile-drm
-          #git clone --depth 1 https://gitlab.freedesktop.org/mesa/drm.git
-          #cd drm
-          #meson setup "build-android" \
-          #  --prefix=/tmp/drm-static \
-          #  --cross-file "../build-crossfile-drm" \
-          #  -Ddefault_library=static \
-          #  -Dintel=disabled \
-          #  -Dradeon=disabled \
-          #  -Damdgpu=disabled \
-          #  -Dnouveau=disabled \
-          #  -Dvmwgfx=disabled \
-          #  -Dvc4=disabled \
-          #  -Detnaviv=disabled
-          #ninja -C "build-android" install
-          cd ..
-          envsubst <android-${{matrix.arch}} >build-crossfile
-          #git clone --depth 1 --branch 21.2 https://gitlab.freedesktop.org/mesa/mesa.git
-          #git clone --depth 1 https://github.com/Vera-Firefly/mesa-build-fix
-          #cp -rf mesa-build-fix/* mesa/
-          #cd mesa
-          meson setup "build-android" \
-            --prefix=/tmp/mesa \
-            --cross-file "../build-crossfile" \
+          # -Dglx=gallium-xlib \
+          meson "build-android-${{matrix.arch}}" \
+            --prefix=/tmp/zink \
+            --cross-file "android-${{matrix.arch}}" \
+            --buildtype release \
             -Dplatforms=android \
             -Dplatform-sdk-version=29 \
             -Dandroid-stub=true \
-            #-Dandroid-libbacktrace=disabled \
-            #-Dandroid-strict=false \
+            -Dllvm=disabled \
             -Dxlib-lease=disabled \
             -Degl=disabled \
             -Dgbm=disabled \
-            -Dglx=disabled \
-            -Dllvm=disabled \
+            -Dglx=dri \
+            -Dglx-direct=true \
             -Dopengl=true \
             -Dosmesa=true \
             -Dvulkan-drivers= \
             -Dgallium-drivers=swr \
-            -Dshared-glapi=false \
-            -Dbuildtype=release
-          ninja -C "build-android" install
-          cp /tmp/mesa/lib/libOSMesa.so.8.0.0 /tmp/mesa/lib/libOSMesa_8.so
+            -Dshared-glapi=false
+          ninja -C "build-android-${{matrix.arch}}" install
+          # cp "build-android-${{matrix.arch}}/src/gallium/drivers/zink/libzink.a" /tmp/zink/lib/
+          rm /tmp/zink/lib/libOSMesa.so /tmp/zink/lib/libOSMesa.so.8
+          mv /tmp/zink/lib/libOSMesa.so.8.0.0 /tmp/zink/lib/libOSMesa.so.8
+          cp /tmp/zink/lib/libOSMesa.so.8 /tmp/zink/lib/libOSMesa_unstripped.so.8
+          if [ "${{matrix.arch}}" == "arm32" ]; then
+            /usr/local/lib/android/sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin/arm-linux-androideabi-strip /tmp/zink/lib/libOSMesa.so.8
+          else
+            /usr/local/lib/android/sdk/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64/bin/${{matrix.arch}}-linux-android-strip /tmp/zink/lib/libOSMesa.so.8
+          fi
       - name: Upload libraries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v2
         with:
-          name: libOSMesa_${{matrix.arch}}
-          path: /tmp/mesa/lib/libOSMesa_8.so
+          name: libzink_${{matrix.arch}}
+          path: /tmp/zink
