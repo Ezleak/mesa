@@ -22,8 +22,9 @@ if with_android_stub
   dep_android = declare_dependency(
     link_with : stub_libs,
     dependencies : [
-      dependency('sync'),
-      dependency('nativewindow'),
+      dependency('log_stub.cpp'),
+      dependency('sync_stub.cpp'),
+      dependency('nativewindow_stub.cpp'),
     ]
   )
 endif
