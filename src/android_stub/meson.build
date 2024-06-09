@@ -1,6 +1,6 @@
 if with_android_stub
   stub_libs = []
-  lib_names = ['hardware', 'log', 'nativewindow', 'sync', ’backtrace‘]
+  lib_names = ['hardware', 'log', 'nativewindow', 'sync', 'backtrace']
   endif
 
   foreach lib : lib_names
